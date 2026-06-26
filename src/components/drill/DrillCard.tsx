@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Phrase } from "@/lib/phrases";
 import { CATEGORY_META } from "@/lib/phrases";
-import { checkAnswer } from "@/lib/drill-engine";
 import { Particles } from "@/components/ui/Particles";
 import { XpBurst } from "@/components/ui/XpBurst";
 
@@ -14,11 +13,12 @@ type DrillCardProps = {
   cardIndex: number;
 };
 
-type FeedbackState = "idle" | "correct" | "wrong" | "revealed";
+type FeedbackState = "idle" | "checking" | "correct" | "wrong" | "revealed";
 
 export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
   const [userInput, setUserInput] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>("idle");
+  const [feedbackText, setFeedbackText] = useState("");
   const [showParticles, setShowParticles] = useState(false);
   const [showXp, setShowXp] = useState(false);
   const [xpAmount, setXpAmount] = useState(0);
@@ -29,32 +29,56 @@ export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
     startTimeRef.current = Date.now();
     setUserInput("");
     setFeedback("idle");
+    setFeedbackText("");
     setShowParticles(false);
     setShowXp(false);
     inputRef.current?.focus();
   }, [phrase.id, cardIndex]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (feedback !== "idle" || !userInput.trim()) return;
 
+    setFeedback("checking");
     const responseMs = Date.now() - startTimeRef.current;
-    const isCorrect = checkAnswer(userInput, phrase.spanish);
 
-    if (isCorrect) {
-      setFeedback("correct");
-      setShowParticles(true);
-      const xp = 10;
-      setXpAmount(xp);
-      setShowXp(true);
-      setTimeout(() => {
-        setShowParticles(false);
-        setShowXp(false);
-        onAnswer(true, responseMs, userInput);
-      }, 1200);
-    } else {
+    try {
+      const res = await fetch("/api/check-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userAnswer: userInput,
+          correctAnswer: phrase.spanish,
+          englishPrompt: phrase.english,
+          context: phrase.context,
+        }),
+      });
+
+      const data = (await res.json()) as {
+        isCorrect: boolean;
+        feedback: string;
+      };
+
+      setFeedbackText(data.feedback);
+
+      if (data.isCorrect) {
+        setFeedback("correct");
+        setShowParticles(true);
+        const xp = 10;
+        setXpAmount(xp);
+        setShowXp(true);
+        setTimeout(() => {
+          setShowParticles(false);
+          setShowXp(false);
+          onAnswer(true, responseMs, userInput);
+        }, 1200);
+      } else {
+        setFeedback("wrong");
+      }
+    } catch {
       setFeedback("wrong");
+      setFeedbackText("Couldn't check — try again");
     }
-  }, [feedback, userInput, phrase.spanish, onAnswer]);
+  }, [feedback, userInput, phrase.spanish, phrase.english, phrase.context, onAnswer]);
 
   const handleReveal = useCallback(() => {
     setFeedback("revealed");
@@ -85,7 +109,9 @@ export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
         ? "from-red-500/20 to-red-600/10 border-red-400"
         : feedback === "revealed"
           ? "from-amber-500/20 to-amber-600/10 border-amber-400"
-          : "from-white/10 to-white/5 border-white/20";
+          : feedback === "checking"
+            ? "from-purple-500/20 to-purple-600/10 border-purple-400"
+            : "from-white/10 to-white/5 border-white/20";
 
   return (
     <motion.div
@@ -144,6 +170,17 @@ export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
 
         {/* Action buttons */}
         <div className="mt-4 flex gap-3">
+          {feedback === "checking" && (
+            <div className="w-full flex items-center justify-center gap-3 py-3">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                className="w-5 h-5 border-2 border-purple-300 border-t-transparent rounded-full"
+              />
+              <span className="text-purple-300 font-semibold">Checking...</span>
+            </div>
+          )}
+
           {feedback === "idle" && (
             <>
               <button
@@ -171,12 +208,15 @@ export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
             <div className="w-full space-y-3">
               <div className="flex items-center gap-2 text-red-300">
                 <span className="text-lg">✗</span>
-                <span className="font-semibold">Not quite!</span>
+                <span className="font-semibold">
+                  {feedbackText || "Not quite!"}
+                </span>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => {
                     setFeedback("idle");
+                    setFeedbackText("");
                     setUserInput("");
                     inputRef.current?.focus();
                   }}
@@ -210,7 +250,9 @@ export function DrillCard({ phrase, onAnswer, cardIndex }: DrillCardProps) {
               >
                 ✓
               </motion.span>
-              <span className="font-bold text-lg">Perfect!</span>
+              <span className="font-bold text-lg">
+                {feedbackText || "Perfect!"}
+              </span>
             </motion.div>
           )}
         </AnimatePresence>
