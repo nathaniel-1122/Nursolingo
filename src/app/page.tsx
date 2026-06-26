@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { PhraseCategory } from "@/lib/phrases";
-import { getCategories } from "@/lib/phrases";
+import { getCategories, PHRASES } from "@/lib/phrases";
 import { CategoryCard } from "@/components/home/CategoryCard";
 import { StatsBar } from "@/components/home/StatsBar";
 import { DrillSession } from "@/components/drill/DrillSession";
+import { getAllWordStats } from "@/lib/storage";
+import { getDueCount } from "@/lib/srs";
 
 type AppView =
   | { mode: "home" }
@@ -14,6 +16,16 @@ type AppView =
 
 export default function Home() {
   const [view, setView] = useState<AppView>({ mode: "home" });
+  const [dueCount, setDueCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (view.mode === "home") {
+      getAllWordStats().then((allStats) => {
+        const statsMap = new Map(allStats.map((s) => [s.phraseId, s]));
+        setDueCount(getDueCount(PHRASES, statsMap));
+      });
+    }
+  }, [view]);
 
   if (view.mode === "drill") {
     return (
@@ -74,9 +86,11 @@ export default function Home() {
             background: "linear-gradient(135deg, #F59E0Bdd, #DC2626aa)",
           }}
         >
-          <span className="text-2xl block mb-1">🎯</span>
-          <p className="text-sm font-bold text-white">Weak Spots</p>
-          <p className="text-[10px] text-white/60">8 phrases, ~3 min</p>
+          <span className="text-2xl block mb-1">🧠</span>
+          <p className="text-sm font-bold text-white">Smart Review</p>
+          <p className="text-[10px] text-white/60">
+            {dueCount !== null ? `${dueCount} due` : "~3 min"}
+          </p>
         </motion.button>
       </div>
 

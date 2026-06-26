@@ -1,6 +1,7 @@
 import type { Phrase, PhraseCategory } from "./phrases";
 import { PHRASES, getPhrasesByCategory } from "./phrases";
 import { getAllWordStats, getPhraseOverrides, type WordStats } from "./storage";
+import { buildReviewQueue } from "./srs";
 
 export interface DrillSession {
   phrases: Phrase[];
@@ -22,60 +23,31 @@ export async function createDrillSession(
   category: PhraseCategory | "all" | "weak",
   count: number = SESSION_SIZE,
 ): Promise<DrillSession> {
-  let pool: Phrase[];
-
-  if (category === "all") {
-    pool = [...PHRASES];
-  } else if (category === "weak") {
-    pool = await getWeakPhrases(count);
-  } else {
-    pool = getPhrasesByCategory(category);
-  }
-
-  const overrides = await getPhraseOverrides();
-  const withOverrides = pool.map((p) =>
-    overrides[p.id] ? { ...p, spanish: overrides[p.id] } : p,
-  );
-
-  const shuffled = shuffleArray(withOverrides).slice(0, count);
-
-  return {
-    phrases: shuffled,
-    currentIndex: 0,
-    results: [],
-    startedAt: Date.now(),
-  };
-}
-
-async function getWeakPhrases(count: number): Promise<Phrase[]> {
   const allStats = await getAllWordStats();
   const statsMap = new Map<string, WordStats>();
   for (const s of allStats) {
     statsMap.set(s.phraseId, s);
   }
 
-  const scored = PHRASES.map((phrase) => {
-    const stats = statsMap.get(phrase.id);
-    if (!stats || stats.timesSeen === 0) return { phrase, score: 0.5 };
+  const candidatePool =
+    category === "all" || category === "weak"
+      ? PHRASES
+      : getPhrasesByCategory(category);
 
-    const accuracy = stats.timesCorrect / stats.timesSeen;
-    const recency = (Date.now() - stats.lastSeen) / (1000 * 60 * 60 * 24);
-    // Lower accuracy + longer since seen = higher priority
-    const score = (1 - accuracy) * 0.6 + Math.min(recency / 7, 1) * 0.4;
-    return { phrase, score };
-  });
+  const queue = buildReviewQueue(candidatePool, statsMap);
+  const selected = queue.slice(0, count).map((s) => s.phrase);
 
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, count).map((s) => s.phrase);
-}
+  const overrides = await getPhraseOverrides();
+  const withOverrides = selected.map((p) =>
+    overrides[p.id] ? { ...p, spanish: overrides[p.id] } : p,
+  );
 
-function shuffleArray<T>(array: readonly T[]): T[] {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+  return {
+    phrases: withOverrides,
+    currentIndex: 0,
+    results: [],
+    startedAt: Date.now(),
+  };
 }
 
 export function normalizeAnswer(input: string): string {

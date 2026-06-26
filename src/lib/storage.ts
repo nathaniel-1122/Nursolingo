@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { calculateNextReview } from "./srs";
 
 export interface WordStats {
   phraseId: string;
@@ -8,6 +9,9 @@ export interface WordStats {
   streak: number;
   lastSeen: number;
   averageResponseMs: number;
+  srsInterval: number;
+  srsEaseFactor: number;
+  srsDueAt: number;
 }
 
 export interface SessionStats {
@@ -28,6 +32,9 @@ interface WordStatsRow {
   streak: number;
   last_seen: number;
   average_response_ms: number;
+  srs_interval: number;
+  srs_ease_factor: number;
+  srs_due_at: number;
 }
 
 interface SessionStatsRow {
@@ -50,6 +57,9 @@ function rowToWordStats(row: WordStatsRow): WordStats {
     streak: row.streak,
     lastSeen: row.last_seen,
     averageResponseMs: row.average_response_ms,
+    srsInterval: row.srs_interval ?? 0,
+    srsEaseFactor: row.srs_ease_factor ?? 2.5,
+    srsDueAt: row.srs_due_at ?? 0,
   };
 }
 
@@ -91,6 +101,9 @@ export async function getWordStats(phraseId: string): Promise<WordStats> {
       streak: 0,
       lastSeen: 0,
       averageResponseMs: 0,
+      srsInterval: 0,
+      srsEaseFactor: 2.5,
+      srsDueAt: 0,
     };
   }
 
@@ -104,18 +117,24 @@ export async function updateWordStats(
 ): Promise<WordStats> {
   const current = await getWordStats(phraseId);
 
+  const newStreak = isCorrect ? current.streak + 1 : 0;
+  const srs = calculateNextReview(current, isCorrect, responseMs);
+
   const updated: WordStats = {
     ...current,
     timesSeen: current.timesSeen + 1,
     timesCorrect: current.timesCorrect + (isCorrect ? 1 : 0),
     timesWrong: current.timesWrong + (isCorrect ? 0 : 1),
-    streak: isCorrect ? current.streak + 1 : 0,
+    streak: newStreak,
     lastSeen: Date.now(),
     averageResponseMs:
       current.timesSeen === 0
         ? responseMs
         : (current.averageResponseMs * current.timesSeen + responseMs) /
           (current.timesSeen + 1),
+    srsInterval: srs.interval,
+    srsEaseFactor: srs.easeFactor,
+    srsDueAt: srs.dueAt,
   };
 
   await supabase.from("word_stats").upsert({
@@ -126,6 +145,9 @@ export async function updateWordStats(
     streak: updated.streak,
     last_seen: updated.lastSeen,
     average_response_ms: updated.averageResponseMs,
+    srs_interval: updated.srsInterval,
+    srs_ease_factor: updated.srsEaseFactor,
+    srs_due_at: updated.srsDueAt,
   });
 
   return updated;
