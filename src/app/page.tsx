@@ -11,10 +11,12 @@ import { DrillSession } from "@/components/drill/DrillSession";
 import { getAllWordStats } from "@/lib/storage";
 import { getDueCount } from "@/lib/srs";
 import { SoundSettings } from "@/components/settings/SoundSettings";
+import { ProgressDashboard } from "@/components/dashboard/ProgressDashboard";
 
 type AppView =
   | { mode: "home" }
-  | { mode: "drill"; category: PhraseCategory | "all" | "weak" };
+  | { mode: "drill"; category: PhraseCategory | "all" | "weak" }
+  | { mode: "dashboard" };
 
 export default function Home() {
   const [view, setView] = useState<AppView>({ mode: "home" });
@@ -29,6 +31,10 @@ export default function Home() {
       });
     }
   }, [view]);
+
+  if (view.mode === "dashboard") {
+    return <ProgressDashboard onBack={() => setView({ mode: "home" })} />;
+  }
 
   if (view.mode === "drill") {
     return (
@@ -54,6 +60,13 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         className="relative text-center mb-6"
       >
+        <button
+          onClick={() => setView({ mode: "dashboard" })}
+          className="absolute left-0 top-1 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
+          title="Progress dashboard"
+        >
+          📊
+        </button>
         <button
           onClick={() => setShowSoundSettings(true)}
           className="absolute right-0 top-1 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
