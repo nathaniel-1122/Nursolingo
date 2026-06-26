@@ -47,17 +47,18 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
       );
       setSessionStats(updated);
 
-      const newResults = [...results, result];
-      setResults(newResults);
-
-      if (currentIndex + 1 >= phrases.length) {
-        setIsComplete(true);
-      } else {
-        setCurrentIndex((i) => i + 1);
-      }
+      setResults((prev) => [...prev, result]);
     },
-    [phrases, currentIndex, results],
+    [phrases, currentIndex],
   );
+
+  const handleNext = useCallback(() => {
+    if (currentIndex + 1 >= phrases.length) {
+      setIsComplete(true);
+    } else {
+      setCurrentIndex((i) => i + 1);
+    }
+  }, [currentIndex, phrases.length]);
 
   if (isLoading) {
     return (
@@ -138,6 +139,7 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
             key={`${phrases[currentIndex].id}-${currentIndex}`}
             phrase={phrases[currentIndex]}
             onAnswer={handleAnswer}
+            onNext={handleNext}
             cardIndex={currentIndex}
           />
         </AnimatePresence>

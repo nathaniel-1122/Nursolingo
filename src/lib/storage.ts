@@ -207,3 +207,25 @@ export async function getAllWordStats(): Promise<WordStats[]> {
   if (!data) return [];
   return (data as WordStatsRow[]).map(rowToWordStats);
 }
+
+export async function savePhraseOverride(
+  phraseId: string,
+  correctedSpanish: string,
+): Promise<void> {
+  await supabase.from("phrase_overrides").upsert({
+    phrase_id: phraseId,
+    corrected_spanish: correctedSpanish,
+  });
+}
+
+export async function getPhraseOverrides(): Promise<
+  Record<string, string>
+> {
+  const { data } = await supabase.from("phrase_overrides").select();
+  if (!data) return {};
+  const overrides: Record<string, string> = {};
+  for (const row of data as { phrase_id: string; corrected_spanish: string }[]) {
+    overrides[row.phrase_id] = row.corrected_spanish;
+  }
+  return overrides;
+}

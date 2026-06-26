@@ -13,6 +13,7 @@ interface CheckAnswerRequest {
 interface CheckAnswerResponse {
   isCorrect: boolean;
   feedback: string;
+  rationale: string;
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -36,15 +37,23 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 150,
-    system: `You are a medical Spanish language evaluator for NICU nurses. Evaluate whether the user's Spanish answer conveys the same meaning as the target phrase. Be generous with minor spelling/accent errors and acceptable synonyms, but the core medical meaning must be correct.
+    max_tokens: 400,
+    system: `You are a medical Spanish language evaluator and tutor for NICU nurses. Evaluate whether the user's Spanish answer conveys the same meaning as the target phrase. Be generous with minor spelling/accent errors and acceptable synonyms, but the core medical meaning must be correct.
 
 Respond ONLY with valid JSON in this exact format:
-{"isCorrect": true/false, "feedback": "brief feedback"}
+{"isCorrect": true/false, "feedback": "short verdict", "rationale": "detailed explanation"}
 
-For feedback:
-- If correct: one short encouraging note (e.g. "Perfect!" or "Great — same meaning, slightly different phrasing")
-- If wrong: explain what was off in 10 words or fewer`,
+Rules for "feedback": one short line (under 15 words).
+- If correct: encouraging note (e.g. "Perfect!" or "Correct — slightly different phrasing but same meaning")
+- If wrong: brief statement of what's off
+
+Rules for "rationale": a detailed teaching explanation (2-4 sentences). ALWAYS include:
+- If a wrong TENSE was used: name the tense the user used (e.g. "You used the present tense 'come'") and the tense that was expected (e.g. "but the target uses the preterite 'comió'"). Explain when each tense is used.
+- If a wrong WORD was used: explain what the user's word actually means (e.g. "'caliente' means 'hot/spicy'") vs what word was expected and what it means (e.g. "'tibio' means 'warm/lukewarm'").
+- If PARTIALLY correct: identify exactly which parts were right and which need fixing.
+- If correct but different phrasing: explain why both versions work.
+- If accent marks are wrong or missing: note which words need accents and why.
+Always be specific — name the exact words, tenses, and meanings. This is for learning.`,
     messages: [
       {
         role: "user",
@@ -53,7 +62,7 @@ Context: ${context}
 Target Spanish answer: "${correctAnswer}"
 User's Spanish answer: "${userAnswer}"
 
-Is the user's answer semantically correct?`,
+Evaluate the user's answer.`,
       },
     ],
   });
@@ -66,11 +75,15 @@ Is the user's answer semantically correct?`,
     );
   }
 
-  const raw = textBlock.text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  const raw = textBlock.text
+    .replace(/```json\s*/g, "")
+    .replace(/```\s*/g, "")
+    .trim();
   const parsed = JSON.parse(raw) as CheckAnswerResponse;
 
   return NextResponse.json({
     isCorrect: parsed.isCorrect,
     feedback: parsed.feedback,
+    rationale: parsed.rationale,
   });
 }

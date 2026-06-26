@@ -1,6 +1,6 @@
 import type { Phrase, PhraseCategory } from "./phrases";
 import { PHRASES, getPhrasesByCategory } from "./phrases";
-import { getAllWordStats, type WordStats } from "./storage";
+import { getAllWordStats, getPhraseOverrides, type WordStats } from "./storage";
 
 export interface DrillSession {
   phrases: Phrase[];
@@ -30,7 +30,12 @@ export async function createDrillSession(
     pool = getPhrasesByCategory(category);
   }
 
-  const shuffled = shuffleArray(pool).slice(0, count);
+  const overrides = await getPhraseOverrides();
+  const withOverrides = pool.map((p) =>
+    overrides[p.id] ? { ...p, spanish: overrides[p.id] } : p,
+  );
+
+  const shuffled = shuffleArray(withOverrides).slice(0, count);
 
   return {
     phrases: shuffled,
