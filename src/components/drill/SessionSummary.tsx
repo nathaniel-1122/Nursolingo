@@ -9,6 +9,8 @@ type SessionSummaryProps = {
   results: DrillResult[];
   phrases: Phrase[];
   sessionStats: SessionStats;
+  bestCombo: number;
+  victoryCount: number;
   onExit: () => void;
   onRetry: () => void;
 };
@@ -17,6 +19,8 @@ export function SessionSummary({
   results,
   phrases,
   sessionStats,
+  bestCombo,
+  victoryCount,
   onExit,
   onRetry,
 }: SessionSummaryProps) {
@@ -24,9 +28,11 @@ export function SessionSummary({
   const total = results.length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
   const xpEarned = correct * 10;
+  const isPerfect = pct === 100 && total > 0;
 
-  const grade =
-    pct >= 90
+  const grade = isPerfect
+    ? { label: "PERFECT!", emoji: "💎", color: "#06B6D4" }
+    : pct >= 90
       ? { label: "Amazing!", emoji: "🌟", color: "#F59E0B" }
       : pct >= 70
         ? { label: "Great job!", emoji: "🔥", color: "#E8356D" }
@@ -46,7 +52,7 @@ export function SessionSummary({
       <motion.div
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="text-center mb-8"
+        className="text-center mb-6"
       >
         <motion.span
           initial={{ scale: 0 }}
@@ -68,30 +74,81 @@ export function SessionSummary({
       </motion.div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 w-full max-w-sm mb-8">
+      <div className="grid grid-cols-2 gap-3 w-full max-w-sm mb-4">
         {[
           { label: "Score", value: `${pct}%`, color: grade.color },
           { label: "XP Earned", value: `+${xpEarned}`, color: "#F59E0B" },
           {
-            label: "Streak",
+            label: "Day Streak",
             value: `${sessionStats.currentStreak}🔥`,
             color: "#E8356D",
           },
-        ].map((stat) => (
+          {
+            label: "Best Combo",
+            value: bestCombo >= 2 ? `${bestCombo}×` : "—",
+            color: "#A855F7",
+          },
+        ].map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.4 + i * 0.05 }}
             className="bg-white/10 rounded-2xl p-4 text-center"
           >
             <p className="text-2xl font-black" style={{ color: stat.color }}>
               {stat.value}
             </p>
-            <p className="text-xs text-white/40 mt-1">{stat.label}</p>
+            <p className="text-[10px] text-white/40 mt-1">{stat.label}</p>
           </motion.div>
         ))}
       </div>
+
+      {/* Victory and perfect banners */}
+      {(victoryCount > 0 || isPerfect) && (
+        <div className="w-full max-w-sm space-y-2 mb-4">
+          {isPerfect && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.6 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+              style={{
+                background: "linear-gradient(135deg, #06B6D422, #A855F722)",
+                border: "1px solid #06B6D444",
+              }}
+            >
+              <span className="text-xl">💎</span>
+              <div>
+                <p className="text-sm font-bold text-cyan-300">Perfect Session!</p>
+                <p className="text-xs text-white/40">Not a single mistake</p>
+              </div>
+            </motion.div>
+          )}
+          {victoryCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.7 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+              style={{
+                background: "linear-gradient(135deg, #F59E0B22, #E8356D22)",
+                border: "1px solid #F59E0B44",
+              }}
+            >
+              <span className="text-xl">🏆</span>
+              <div>
+                <p className="text-sm font-bold text-amber-300">
+                  {victoryCount} {victoryCount === 1 ? "Victory" : "Victories"}!
+                </p>
+                <p className="text-xs text-white/40">
+                  Phrases you previously struggled with
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* Results breakdown */}
       <div className="w-full max-w-sm space-y-2 mb-8">

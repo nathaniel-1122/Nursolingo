@@ -5,17 +5,18 @@ import { motion, AnimatePresence } from "framer-motion";
 type ParticlesProps = {
   show: boolean;
   color?: string;
+  count?: number;
 };
 
 const PARTICLE_COLORS = ["#E8356D", "#F59E0B", "#7C3AED", "#059669", "#0891B2"];
 
-export function Particles({ show, color }: ParticlesProps) {
+export function Particles({ show, color, count = 12 }: ParticlesProps) {
   return (
     <AnimatePresence>
       {show && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const angle = (i / 12) * Math.PI * 2;
+          {Array.from({ length: count }).map((_, i) => {
+            const angle = (i / count) * Math.PI * 2;
             const distance = 80 + Math.random() * 60;
             const size = 6 + Math.random() * 10;
             const particleColor =

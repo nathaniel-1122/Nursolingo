@@ -4,11 +4,15 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Phrase, PhraseCategory } from "@/lib/phrases";
 import { createDrillSession, type DrillResult } from "@/lib/drill-engine";
-import { recordAnswer, type SessionStats } from "@/lib/storage";
+import { recordAnswer, getSessionStats, type SessionStats } from "@/lib/storage";
 import { DrillCard } from "./DrillCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { CATEGORY_META } from "@/lib/phrases";
 import { SessionSummary } from "./SessionSummary";
+import { ComboCounter } from "@/components/ui/ComboCounter";
+import { StreakCelebration } from "@/components/ui/StreakCelebration";
+import { getDailyStreakMilestone } from "@/lib/gamification";
+import type { DailyStreakMilestone } from "@/lib/gamification";
 
 type DrillSessionProps = {
   category: PhraseCategory | "all" | "weak";
@@ -23,11 +27,31 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [comboStreak, setComboStreak] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [victoryCount, setVictoryCount] = useState(0);
+  const [isVictory, setIsVictory] = useState(false);
+
+  const [streakMilestone, setStreakMilestone] =
+    useState<DailyStreakMilestone | null>(null);
+
   useEffect(() => {
-    createDrillSession(category).then((session) => {
+    const init = async () => {
+      const prevStats = await getSessionStats();
+      const session = await createDrillSession(category);
       setPhrases(session.phrases);
       setIsLoading(false);
-    });
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (prevStats.lastSessionDate !== today && prevStats.currentStreak > 0) {
+        const nextStreak = prevStats.currentStreak + 1;
+        const milestone = getDailyStreakMilestone(nextStreak);
+        if (milestone) {
+          setStreakMilestone(milestone);
+        }
+      }
+    };
+    init();
   }, [category]);
 
   const handleAnswer = useCallback(
@@ -40,19 +64,33 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         responseMs,
       };
 
-      const { sessionStats: updated } = await recordAnswer(
+      const { wordStats, sessionStats: updated } = await recordAnswer(
         phrase.id,
         isCorrect,
         responseMs,
       );
       setSessionStats(updated);
 
+      if (isCorrect) {
+        const newCombo = comboStreak + 1;
+        setComboStreak(newCombo);
+        setBestCombo((prev) => Math.max(prev, newCombo));
+
+        if (wordStats.timesWrong > 0 && wordStats.streak === 1) {
+          setVictoryCount((v) => v + 1);
+          setIsVictory(true);
+        }
+      } else {
+        setComboStreak(0);
+      }
+
       setResults((prev) => [...prev, result]);
     },
-    [phrases, currentIndex],
+    [phrases, currentIndex, comboStreak],
   );
 
   const handleNext = useCallback(() => {
+    setIsVictory(false);
     if (currentIndex + 1 >= phrases.length) {
       setIsComplete(true);
     } else {
@@ -92,11 +130,17 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         results={results}
         phrases={phrases}
         sessionStats={sessionStats}
+        bestCombo={bestCombo}
+        victoryCount={victoryCount}
         onExit={onExit}
         onRetry={() => {
           setCurrentIndex(0);
           setResults([]);
           setIsComplete(false);
+          setComboStreak(0);
+          setBestCombo(0);
+          setVictoryCount(0);
+          setIsVictory(false);
           createDrillSession(category).then((session) => {
             setPhrases(session.phrases);
           });
@@ -112,8 +156,14 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
 
   return (
     <div className="flex flex-col min-h-[100dvh] px-4 py-6">
+      <StreakCelebration
+        milestone={streakMilestone}
+        currentStreak={sessionStats?.currentStreak ?? 0}
+        onDismiss={() => setStreakMilestone(null)}
+      />
+
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-4">
         <button
           onClick={onExit}
           className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
@@ -132,6 +182,11 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         </span>
       </div>
 
+      {/* Combo counter */}
+      <div className="flex justify-center mb-2 min-h-[2.5rem]">
+        <ComboCounter streak={comboStreak} />
+      </div>
+
       {/* Card area */}
       <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="wait">
@@ -141,6 +196,8 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
             onAnswer={handleAnswer}
             onNext={handleNext}
             cardIndex={currentIndex}
+            comboStreak={comboStreak}
+            isVictory={isVictory}
           />
         </AnimatePresence>
       </div>

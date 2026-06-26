@@ -6,13 +6,17 @@ import type { Phrase } from "@/lib/phrases";
 import { CATEGORY_META } from "@/lib/phrases";
 import { Particles } from "@/components/ui/Particles";
 import { XpBurst } from "@/components/ui/XpBurst";
+import { VictoryBurst } from "@/components/ui/VictoryBurst";
 import { savePhraseOverride } from "@/lib/storage";
+import { calculateXpWithCombo, getComboTier, COMBO_CONFIG } from "@/lib/gamification";
 
 type DrillCardProps = {
   phrase: Phrase;
   onAnswer: (isCorrect: boolean, responseMs: number, userAnswer: string) => void;
   onNext: () => void;
   cardIndex: number;
+  comboStreak?: number;
+  isVictory?: boolean;
 };
 
 type FeedbackState = "idle" | "checking" | "correct" | "wrong" | "revealed";
@@ -23,6 +27,8 @@ export function DrillCard({
   onAnswer,
   onNext,
   cardIndex,
+  comboStreak = 0,
+  isVictory = false,
 }: DrillCardProps) {
   const [userInput, setUserInput] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>("idle");
@@ -31,6 +37,7 @@ export function DrillCard({
   const [showParticles, setShowParticles] = useState(false);
   const [showXp, setShowXp] = useState(false);
   const [xpAmount, setXpAmount] = useState(0);
+  const [showVictory, setShowVictory] = useState(false);
   const [answerView, setAnswerView] = useState<AnswerView>("mine");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -49,6 +56,7 @@ export function DrillCard({
     setRationale("");
     setShowParticles(false);
     setShowXp(false);
+    setShowVictory(false);
     setAnswerView("mine");
     setIsEditing(false);
     setEditValue("");
@@ -56,6 +64,14 @@ export function DrillCard({
     setHasRecorded(false);
     inputRef.current?.focus();
   }, [phrase.id, cardIndex, phrase.spanish]);
+
+  useEffect(() => {
+    if (isVictory && feedback === "correct") {
+      setShowVictory(true);
+      const timer = setTimeout(() => setShowVictory(false), 1800);
+      return () => clearTimeout(timer);
+    }
+  }, [isVictory, feedback]);
 
   useEffect(() => {
     if (isEditing) editRef.current?.focus();
@@ -91,9 +107,12 @@ export function DrillCard({
       if (data.isCorrect) {
         setFeedback("correct");
         setShowParticles(true);
-        const xp = 10;
-        setXpAmount(xp);
+
+        const nextCombo = comboStreak + 1;
+        const xpCalc = calculateXpWithCombo(10, nextCombo, 0);
+        setXpAmount(xpCalc.total);
         setShowXp(true);
+
         setTimeout(() => {
           setShowParticles(false);
           setShowXp(false);
@@ -118,6 +137,8 @@ export function DrillCard({
     phrase.english,
     phrase.context,
     onAnswer,
+    comboStreak,
+    hasRecorded,
   ]);
 
   const handleReveal = useCallback(() => {
@@ -152,6 +173,8 @@ export function DrillCard({
     feedback === "correct" || feedback === "wrong" || feedback === "revealed";
 
   const categoryMeta = CATEGORY_META[phrase.category];
+  const comboTier = getComboTier(comboStreak + 1);
+  const comboConfig = COMBO_CONFIG[comboTier];
 
   const cardBg =
     feedback === "correct"
@@ -175,9 +198,19 @@ export function DrillCard({
     >
       <div
         className={`relative rounded-3xl border-2 bg-gradient-to-b ${cardBg} backdrop-blur-sm p-6 shadow-xl transition-colors duration-300`}
+        style={
+          feedback === "correct" && comboTier !== "none"
+            ? { boxShadow: comboConfig.glow }
+            : undefined
+        }
       >
-        <Particles show={showParticles} color={categoryMeta.color} />
+        <Particles
+          show={showParticles}
+          color={categoryMeta.color}
+          count={comboTier !== "none" ? comboConfig.particleCount : 12}
+        />
         <XpBurst amount={xpAmount} show={showXp} />
+        <VictoryBurst show={showVictory} />
 
         {/* Category tag */}
         <div className="flex items-center gap-2 mb-4">
