@@ -9,6 +9,7 @@ import { XpBurst } from "@/components/ui/XpBurst";
 import { VictoryBurst } from "@/components/ui/VictoryBurst";
 import { savePhraseOverride } from "@/lib/storage";
 import { calculateXpWithCombo, getComboTier, COMBO_CONFIG } from "@/lib/gamification";
+import { isCloseMatch } from "@/lib/drill-engine";
 import { useSounds } from "@/hooks/useSounds";
 
 type DrillCardProps = {
@@ -89,22 +90,32 @@ export function DrillCard({
     responseMsRef.current = Date.now() - startTimeRef.current;
 
     try {
-      const res = await fetch("/api/check-answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userAnswer: userInput,
-          correctAnswer: savedAnswer,
-          englishPrompt: phrase.english,
-          context: phrase.context,
-        }),
-      });
+      let data: { isCorrect: boolean; feedback: string; rationale: string };
 
-      const data = (await res.json()) as {
-        isCorrect: boolean;
-        feedback: string;
-        rationale: string;
-      };
+      if (isCloseMatch(userInput, savedAnswer)) {
+        data = {
+          isCorrect: true,
+          feedback: "¡Correcto!",
+          rationale: "",
+        };
+      } else {
+        const res = await fetch("/api/check-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userAnswer: userInput,
+            correctAnswer: savedAnswer,
+            englishPrompt: phrase.english,
+            context: phrase.context,
+          }),
+        });
+
+        data = (await res.json()) as {
+          isCorrect: boolean;
+          feedback: string;
+          rationale: string;
+        };
+      }
 
       setFeedbackText(data.feedback);
       setRationale(data.rationale);

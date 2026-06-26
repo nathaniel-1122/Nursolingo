@@ -58,6 +58,30 @@ export function normalizeAnswer(input: string): string {
     .replace(/\s+/g, " ");
 }
 
+export function stripAccents(input: string): string {
+  return input.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+export function isCloseMatch(userAnswer: string, correctAnswer: string): boolean {
+  const normalized = normalizeAnswer(userAnswer);
+  const correct = normalizeAnswer(correctAnswer);
+
+  if (normalized === correct) return true;
+  if (stripAccents(normalized) === stripAccents(correct)) return true;
+
+  if (correct.length > 20 && levenshteinDistance(normalized, correct) <= 3) {
+    return true;
+  }
+  if (correct.length > 10 && levenshteinDistance(normalized, correct) <= 2) {
+    return true;
+  }
+  if (correct.length <= 10 && levenshteinDistance(normalized, correct) <= 1) {
+    return true;
+  }
+
+  return false;
+}
+
 export function checkAnswer(userAnswer: string, correctAnswer: string): boolean {
   const normalized = normalizeAnswer(userAnswer);
   const correct = normalizeAnswer(correctAnswer);
