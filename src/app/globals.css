@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --background: #1a1033;
+  --foreground: #f5f0ff;
+  --candy-pink: #E8356D;
+  --candy-orange: #F59E0B;
+  --candy-purple: #7C3AED;
+  --candy-teal: #0891B2;
+  --candy-green: #059669;
+  --candy-red: #DC2626;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Animated gradient background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(232, 53, 109, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+    var(--background);
+  pointer-events: none;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--candy-pink);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Custom selection */
+::selection {
+  background: rgba(232, 53, 109, 0.4);
+  color: white;
+}
+
+/* Safe area for PWA */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
