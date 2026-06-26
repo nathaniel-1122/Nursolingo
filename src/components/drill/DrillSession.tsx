@@ -13,6 +13,8 @@ import { ComboCounter } from "@/components/ui/ComboCounter";
 import { StreakCelebration } from "@/components/ui/StreakCelebration";
 import { getDailyStreakMilestone } from "@/lib/gamification";
 import type { DailyStreakMilestone } from "@/lib/gamification";
+import { useSounds } from "@/hooks/useSounds";
+import { useVibrations } from "@/hooks/useVibrations";
 
 type DrillSessionProps = {
   category: PhraseCategory | "all" | "weak";
@@ -20,6 +22,8 @@ type DrillSessionProps = {
 };
 
 export function DrillSession({ category, onExit }: DrillSessionProps) {
+  const { play, playComboSound, resetComboTracking } = useSounds();
+  const { vibrate, vibrateCombo, resetVibrateTracking } = useVibrations();
   const [phrases, setPhrases] = useState<Phrase[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DrillResult[]>([]);
@@ -48,6 +52,7 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         const milestone = getDailyStreakMilestone(nextStreak);
         if (milestone) {
           setStreakMilestone(milestone);
+          setTimeout(() => play("streakMilestone"), 400);
         }
       }
     };
@@ -82,21 +87,23 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         }
       } else {
         setComboStreak(0);
+        resetComboTracking();
       }
 
       setResults((prev) => [...prev, result]);
     },
-    [phrases, currentIndex, comboStreak],
+    [phrases, currentIndex, comboStreak, resetComboTracking],
   );
 
   const handleNext = useCallback(() => {
     setIsVictory(false);
     if (currentIndex + 1 >= phrases.length) {
       setIsComplete(true);
+      play("sessionComplete");
     } else {
       setCurrentIndex((i) => i + 1);
     }
-  }, [currentIndex, phrases.length]);
+  }, [currentIndex, phrases.length, play]);
 
   if (isLoading) {
     return (
@@ -198,6 +205,7 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
             cardIndex={currentIndex}
             comboStreak={comboStreak}
             isVictory={isVictory}
+            onComboSound={playComboSound}
           />
         </AnimatePresence>
       </div>

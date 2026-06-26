@@ -9,6 +9,7 @@ import { XpBurst } from "@/components/ui/XpBurst";
 import { VictoryBurst } from "@/components/ui/VictoryBurst";
 import { savePhraseOverride } from "@/lib/storage";
 import { calculateXpWithCombo, getComboTier, COMBO_CONFIG } from "@/lib/gamification";
+import { useSounds } from "@/hooks/useSounds";
 
 type DrillCardProps = {
   phrase: Phrase;
@@ -17,6 +18,7 @@ type DrillCardProps = {
   cardIndex: number;
   comboStreak?: number;
   isVictory?: boolean;
+  onComboSound?: (streak: number) => void;
 };
 
 type FeedbackState = "idle" | "checking" | "correct" | "wrong" | "revealed";
@@ -29,7 +31,9 @@ export function DrillCard({
   cardIndex,
   comboStreak = 0,
   isVictory = false,
+  onComboSound,
 }: DrillCardProps) {
+  const { play } = useSounds();
   const [userInput, setUserInput] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>("idle");
   const [feedbackText, setFeedbackText] = useState("");
@@ -68,10 +72,11 @@ export function DrillCard({
   useEffect(() => {
     if (isVictory && feedback === "correct") {
       setShowVictory(true);
+      setTimeout(() => play("victory"), 300);
       const timer = setTimeout(() => setShowVictory(false), 1800);
       return () => clearTimeout(timer);
     }
-  }, [isVictory, feedback]);
+  }, [isVictory, feedback, play]);
 
   useEffect(() => {
     if (isEditing) editRef.current?.focus();
@@ -107,11 +112,15 @@ export function DrillCard({
       if (data.isCorrect) {
         setFeedback("correct");
         setShowParticles(true);
+        play("correct");
 
         const nextCombo = comboStreak + 1;
+        onComboSound?.(nextCombo);
+
         const xpCalc = calculateXpWithCombo(10, nextCombo, 0);
         setXpAmount(xpCalc.total);
         setShowXp(true);
+        setTimeout(() => play("xpGain"), 200);
 
         setTimeout(() => {
           setShowParticles(false);
@@ -121,6 +130,7 @@ export function DrillCard({
         setHasRecorded(true);
       } else {
         setFeedback("wrong");
+        play("wrong");
         if (!hasRecorded) {
           onAnswer(false, responseMsRef.current, userInput);
           setHasRecorded(true);
@@ -139,16 +149,19 @@ export function DrillCard({
     onAnswer,
     comboStreak,
     hasRecorded,
+    play,
+    onComboSound,
   ]);
 
   const handleReveal = useCallback(() => {
     setFeedback("revealed");
+    play("reveal");
     responseMsRef.current = Date.now() - startTimeRef.current;
     if (!hasRecorded) {
       onAnswer(false, responseMsRef.current, userInput);
       setHasRecorded(true);
     }
-  }, [onAnswer, userInput, hasRecorded]);
+  }, [onAnswer, userInput, hasRecorded, play]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

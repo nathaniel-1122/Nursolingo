@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import type { PhraseCategory } from "@/lib/phrases";
 import { getCategories, PHRASES } from "@/lib/phrases";
@@ -9,6 +10,7 @@ import { StatsBar } from "@/components/home/StatsBar";
 import { DrillSession } from "@/components/drill/DrillSession";
 import { getAllWordStats } from "@/lib/storage";
 import { getDueCount } from "@/lib/srs";
+import { SoundSettings } from "@/components/settings/SoundSettings";
 
 type AppView =
   | { mode: "home" }
@@ -17,6 +19,7 @@ type AppView =
 export default function Home() {
   const [view, setView] = useState<AppView>({ mode: "home" });
   const [dueCount, setDueCount] = useState<number | null>(null);
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
 
   useEffect(() => {
     if (view.mode === "home") {
@@ -38,12 +41,26 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-dvh px-4 py-6 max-w-lg mx-auto w-full">
+      {/* Sound settings modal (portal to escape stacking contexts) */}
+      {showSoundSettings &&
+        createPortal(
+          <SoundSettings onClose={() => setShowSoundSettings(false)} />,
+          document.body,
+        )}
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-6"
+        className="relative text-center mb-6"
       >
+        <button
+          onClick={() => setShowSoundSettings(true)}
+          className="absolute right-0 top-1 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
+          title="Sound settings"
+        >
+          🔊
+        </button>
         <h1 className="text-4xl font-black bg-gradient-to-r from-pink-400 via-purple-400 to-amber-400 bg-clip-text text-transparent">
           Nursolingo
         </h1>

@@ -4,7 +4,12 @@ export type PhraseCategory =
   | "status-updates"
   | "clinical"
   | "family-questions"
-  | "verb-drills";
+  | "verb-drills"
+  | "discharge"
+  | "medications"
+  | "procedures"
+  | "feeding"
+  | "skin-to-skin";
 
 export interface Phrase {
   id: string;
@@ -54,6 +59,36 @@ export const CATEGORY_META: Record<
     emoji: "🔄",
     color: "#DC2626",
     description: "Conjugation practice",
+  },
+  discharge: {
+    label: "Discharge",
+    emoji: "🏠",
+    color: "#2563EB",
+    description: "Going-home teaching for families",
+  },
+  medications: {
+    label: "Medications",
+    emoji: "💊",
+    color: "#9333EA",
+    description: "Explaining meds and supplements",
+  },
+  procedures: {
+    label: "Procedures",
+    emoji: "🩺",
+    color: "#0D9488",
+    description: "Tests, exams, and interventions",
+  },
+  feeding: {
+    label: "Feeding",
+    emoji: "🍼",
+    color: "#EA580C",
+    description: "Breastfeeding, bottles, and nutrition",
+  },
+  "skin-to-skin": {
+    label: "Skin-to-Skin",
+    emoji: "🤱",
+    color: "#DB2777",
+    description: "Kangaroo care and bonding",
   },
 };
 
