@@ -1,4 +1,4 @@
-import { openDB, type IDBPDatabase } from "idb";
+import { supabase } from "./supabase";
 
 export interface WordStats {
   phraseId: string;
@@ -20,25 +20,49 @@ export interface SessionStats {
   totalWrong: number;
 }
 
-const DB_NAME = "nursolingo";
-const DB_VERSION = 1;
+interface WordStatsRow {
+  phrase_id: string;
+  times_seen: number;
+  times_correct: number;
+  times_wrong: number;
+  streak: number;
+  last_seen: number;
+  average_response_ms: number;
+}
 
-let dbPromise: Promise<IDBPDatabase> | null = null;
+interface SessionStatsRow {
+  id: string;
+  total_xp: number;
+  current_streak: number;
+  longest_streak: number;
+  last_session_date: string;
+  sessions_completed: number;
+  total_correct: number;
+  total_wrong: number;
+}
 
-function getDb(): Promise<IDBPDatabase> {
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains("wordStats")) {
-          db.createObjectStore("wordStats", { keyPath: "phraseId" });
-        }
-        if (!db.objectStoreNames.contains("sessionStats")) {
-          db.createObjectStore("sessionStats");
-        }
-      },
-    });
-  }
-  return dbPromise;
+function rowToWordStats(row: WordStatsRow): WordStats {
+  return {
+    phraseId: row.phrase_id,
+    timesSeen: row.times_seen,
+    timesCorrect: row.times_correct,
+    timesWrong: row.times_wrong,
+    streak: row.streak,
+    lastSeen: row.last_seen,
+    averageResponseMs: row.average_response_ms,
+  };
+}
+
+function rowToSessionStats(row: SessionStatsRow): SessionStats {
+  return {
+    totalXp: row.total_xp,
+    currentStreak: row.current_streak,
+    longestStreak: row.longest_streak,
+    lastSessionDate: row.last_session_date,
+    sessionsCompleted: row.sessions_completed,
+    totalCorrect: row.total_correct,
+    totalWrong: row.total_wrong,
+  };
 }
 
 const DEFAULT_SESSION_STATS: SessionStats = {
@@ -52,10 +76,14 @@ const DEFAULT_SESSION_STATS: SessionStats = {
 };
 
 export async function getWordStats(phraseId: string): Promise<WordStats> {
-  const db = await getDb();
-  const stats = await db.get("wordStats", phraseId);
-  return (
-    stats ?? {
+  const { data } = await supabase
+    .from("word_stats")
+    .select()
+    .eq("phrase_id", phraseId)
+    .single();
+
+  if (!data) {
+    return {
       phraseId,
       timesSeen: 0,
       timesCorrect: 0,
@@ -63,8 +91,10 @@ export async function getWordStats(phraseId: string): Promise<WordStats> {
       streak: 0,
       lastSeen: 0,
       averageResponseMs: 0,
-    }
-  );
+    };
+  }
+
+  return rowToWordStats(data as WordStatsRow);
 }
 
 export async function updateWordStats(
@@ -72,7 +102,6 @@ export async function updateWordStats(
   isCorrect: boolean,
   responseMs: number,
 ): Promise<WordStats> {
-  const db = await getDb();
   const current = await getWordStats(phraseId);
 
   const updated: WordStats = {
@@ -89,23 +118,48 @@ export async function updateWordStats(
           (current.timesSeen + 1),
   };
 
-  await db.put("wordStats", updated);
+  await supabase.from("word_stats").upsert({
+    phrase_id: updated.phraseId,
+    times_seen: updated.timesSeen,
+    times_correct: updated.timesCorrect,
+    times_wrong: updated.timesWrong,
+    streak: updated.streak,
+    last_seen: updated.lastSeen,
+    average_response_ms: updated.averageResponseMs,
+  });
+
   return updated;
 }
 
 export async function getSessionStats(): Promise<SessionStats> {
-  const db = await getDb();
-  const stats = await db.get("sessionStats", "current");
-  return stats ?? { ...DEFAULT_SESSION_STATS };
+  const { data } = await supabase
+    .from("session_stats")
+    .select()
+    .eq("id", "current")
+    .single();
+
+  if (!data) return { ...DEFAULT_SESSION_STATS };
+
+  return rowToSessionStats(data as SessionStatsRow);
 }
 
 export async function updateSessionStats(
   patch: Partial<SessionStats>,
 ): Promise<SessionStats> {
-  const db = await getDb();
   const current = await getSessionStats();
   const updated = { ...current, ...patch };
-  await db.put("sessionStats", updated, "current");
+
+  await supabase.from("session_stats").upsert({
+    id: "current",
+    total_xp: updated.totalXp,
+    current_streak: updated.currentStreak,
+    longest_streak: updated.longestStreak,
+    last_session_date: updated.lastSessionDate,
+    sessions_completed: updated.sessionsCompleted,
+    total_correct: updated.totalCorrect,
+    total_wrong: updated.totalWrong,
+  });
+
   return updated;
 }
 
@@ -149,6 +203,7 @@ function isStreakAlive(lastDate: string): boolean {
 }
 
 export async function getAllWordStats(): Promise<WordStats[]> {
-  const db = await getDb();
-  return db.getAll("wordStats");
+  const { data } = await supabase.from("word_stats").select();
+  if (!data) return [];
+  return (data as WordStatsRow[]).map(rowToWordStats);
 }
