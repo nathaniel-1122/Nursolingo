@@ -122,13 +122,13 @@ export function DrillSession({ category, onExit }: DrillSessionProps) {
         </button>
         <div className="flex-1">
           <ProgressBar
-            current={currentIndex}
+            current={results.length}
             total={phrases.length}
             color={categoryColor}
           />
         </div>
         <span className="text-sm text-white/50 font-mono min-w-[3rem] text-right">
-          {currentIndex + 1}/{phrases.length}
+          {results.length}/{phrases.length}
         </span>
       </div>
 

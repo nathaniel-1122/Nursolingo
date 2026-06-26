@@ -102,6 +102,10 @@ export function DrillCard({
         setHasRecorded(true);
       } else {
         setFeedback("wrong");
+        if (!hasRecorded) {
+          onAnswer(false, responseMsRef.current, userInput);
+          setHasRecorded(true);
+        }
       }
     } catch {
       setFeedback("wrong");

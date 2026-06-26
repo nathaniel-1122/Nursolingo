@@ -60,7 +60,7 @@ export default function Home() {
         >
           <span className="text-2xl block mb-1">🚀</span>
           <p className="text-sm font-bold text-white">Quick Mix</p>
-          <p className="text-[10px] text-white/60">All categories</p>
+          <p className="text-[10px] text-white/60">8 phrases, ~3 min</p>
         </motion.button>
 
         <motion.button
@@ -76,7 +76,7 @@ export default function Home() {
         >
           <span className="text-2xl block mb-1">🎯</span>
           <p className="text-sm font-bold text-white">Weak Spots</p>
-          <p className="text-[10px] text-white/60">Practice struggles</p>
+          <p className="text-[10px] text-white/60">8 phrases, ~3 min</p>
         </motion.button>
       </div>
 

@@ -42,7 +42,7 @@ export function CategoryCard({ category, index, onSelect }: CategoryCardProps) {
       <p className="text-xs text-white/70 mb-3">{meta.description}</p>
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-white/50 font-mono">
-          {phraseCount} phrases
+          {phraseCount} phrases, ~{Math.max(1, Math.round(phraseCount * 0.4))} min
         </span>
       </div>
     </motion.button>

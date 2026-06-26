@@ -16,9 +16,11 @@ export interface DrillResult {
   responseMs: number;
 }
 
+const SESSION_SIZE = 8;
+
 export async function createDrillSession(
   category: PhraseCategory | "all" | "weak",
-  count: number = 10,
+  count: number = SESSION_SIZE,
 ): Promise<DrillSession> {
   let pool: Phrase[];
 
